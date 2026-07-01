@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kafka Theory Refresher</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --text: #172033;
+      --muted: #5b6578;
+      --line: #d8deea;
+      --accent: #0f766e;
+      --accent-soft: #dff4f1;
+      --code-bg: #111827;
+      --code-text: #e5e7eb;
+      --warn-bg: #fff7df;
+      --warn-line: #e7c766;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      background: #182230;
+      color: white;
+      padding: 44px 24px 36px;
+    }
+
+    header .wrap {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 760px;
+      margin: 0;
+      color: #d4d9e3;
+      font-size: 1.05rem;
+    }
+
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    nav {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 22px;
+    }
+
+    nav h2 {
+      margin-top: 0;
+      font-size: 1.1rem;
+    }
+
+    nav ol {
+      margin: 0;
+      padding-left: 22px;
+      columns: 2;
+      column-gap: 42px;
+    }
+
+    a {
+      color: #075985;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      margin-bottom: 18px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.45rem;
+    }
+
+    h3 {
+      margin: 20px 0 8px;
+      font-size: 1.05rem;
+    }
+
+    p {
+      margin: 8px 0;
+    }
+
+    ul {
+      padding-left: 22px;
+      margin: 8px 0;
+    }
+
+    li {
+      margin: 4px 0;
+    }
+
+    code {
+      background: #eef2f7;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 0.95em;
+    }
+
+    pre {
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+
+    .note {
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      padding: 12px 14px;
+      margin: 12px 0;
+      border-radius: 6px;
+    }
+
+    .warning {
+      border-left: 4px solid var(--warn-line);
+      background: var(--warn-bg);
+      padding: 12px 14px;
+      margin: 12px 0;
+      border-radius: 6px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .mini {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+    }
+
+    .mini strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .tag {
+      display: inline-block;
+      background: #e8eef8;
+      color: #26344f;
+      border-radius: 999px;
+      padding: 3px 9px;
+      margin: 2px 4px 2px 0;
+      font-size: 0.86rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 0.95rem;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef2f7;
+    }
+
+    @media (max-width: 760px) {
+      nav ol {
+        columns: 1;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      main {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Kafka Theory Refresher</h1>
+      <p>A one-by-one walkthrough of Kafka terminology, client-broker communication, bootstrap brokers, partition leaders, polling, and when Kafka makes sense compared with direct APIs.</p>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="Table of contents">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#kafka">Kafka</a></li>
+        <li><a href="#benefits">Benefits Apart From Distribution</a></li>
+        <li><a href="#api-vs-kafka">API vs Kafka</a></li>
+        <li><a href="#broker-client">Broker vs Client Communication</a></li>
+        <li><a href="#bootstrap">Bootstrap Broker</a></li>
+        <li><a href="#leader">Partition Leader</a></li>
+        <li><a href="#polling">Consumer Polling</a></li>
+        <li><a href="#topic-layout">Topics Across Brokers</a></li>
+        <li><a href="#security">Security Modes</a></li>
+        <li><a href="#summary">Short Summary</a></li>
+      </ol>
+    </nav>
+
+    <section id="kafka">
+      <h2>1. Kafka</h2>
+      <p>Apache Kafka is a distributed event streaming platform. It lets applications publish, store, and consume streams of records or events.</p>
+      <pre><code>Producer application -> Kafka -> Consumer application</code></pre>
+      <p>Example event:</p>
+      <pre><code>{
+  "orderId": "123",
+  "status": "CREATED",
+  "createdAt": "2026-06-30T10:00:00Z"
+}</code></pre>
+      <div class="note">
+        Core idea: producers write data to Kafka, Kafka stores the data, and consumers read the data from Kafka.
+      </div>
+    </section>
+
+    <section id="benefits">
+      <h2>2. Benefits Apart From Distribution</h2>
+      <div class="grid">
+        <div class="mini">
+          <strong>Decoupling services</strong>
+          <p>Producer and consumer do not need to call each other directly. The producer publishes an event, and consumers process it independently.</p>
+        </div>
+        <div class="mini">
+          <strong>Traffic buffering</strong>
+          <p>If many events arrive suddenly, Kafka can hold them while consumers process at their own pace.</p>
+        </div>
+        <div class="mini">
+          <strong>Replay</strong>
+          <p>Kafka stores records for a configured retention period. A fixed or new consumer can replay older events from a chosen offset.</p>
+        </div>
+        <div class="mini">
+          <strong>Multiple consumers</strong>
+          <p>The same event can feed payment, inventory, email, analytics, and audit systems without the producer calling all of them.</p>
+        </div>
+        <div class="mini">
+          <strong>Async workflows</strong>
+          <p>Non-immediate work like sending emails, analytics, and audit logging can happen after the request returns.</p>
+        </div>
+        <div class="mini">
+          <strong>Durability</strong>
+          <p>If a consumer is down, records remain in Kafka until retention expires. The consumer can resume from its committed offset.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="api-vs-kafka">
+      <h2>3. API vs Kafka</h2>
+      <p>Yes, you can use APIs instead of Kafka in many cases. The choice depends on whether you need an immediate response or asynchronous event processing.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Use API For</th>
+            <th>Use Kafka For</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Immediate request-response communication.</td>
+            <td>Events that say something already happened.</td>
+          </tr>
+          <tr>
+            <td><code>Get user details</code></td>
+            <td><code>UserRegistered</code></td>
+          </tr>
+          <tr>
+            <td><code>Check balance</code></td>
+            <td><code>PaymentCompleted</code></td>
+          </tr>
+          <tr>
+            <td><code>Cancel payment</code></td>
+            <td><code>OrderCreated</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        Simple rule: APIs are good for commands and questions. Kafka is good for facts and events.
+      </div>
+    </section>
+
+    <section id="broker-client">
+      <h2>4. Broker vs Client Communication</h2>
+      <p>Kafka broker and Kafka client communicate using Kafka's own binary protocol over TCP. It is not HTTP or REST by default.</p>
+      <pre><code>Kafka Client <---- TCP connection using Kafka protocol ----> Kafka Broker</code></pre>
+      <h3>Kafka Broker</h3>
+      <p>A broker is a Kafka server. It stores topic partitions and handles requests from producers, consumers, admin clients, and Kafka Streams applications.</p>
+      <p>Default broker port is usually <code>9092</code>.</p>
+      <h3>Kafka Client</h3>
+      <p>A Kafka client is any application that talks to Kafka.</p>
+      <p>
+        <span class="tag">Producer</span>
+        <span class="tag">Consumer</span>
+        <span class="tag">Admin Client</span>
+        <span class="tag">Kafka Streams app</span>
+      </p>
+      <h3>Producer Communication</h3>
+      <pre><code>Producer connects to bootstrap broker
+Producer fetches metadata
+Producer finds the partition leader
+Producer sends record to the leader broker
+Broker responds with success or failure</code></pre>
+      <h3>Consumer Communication</h3>
+      <pre><code>Consumer -> Broker: give me records
+Broker -> Consumer: here are records</code></pre>
+      <p>Producers push records into Kafka. Consumers pull records from Kafka.</p>
+    </section>
+
+    <section id="bootstrap">
+      <h2>5. Bootstrap Broker</h2>
+      <p>A bootstrap broker is not a special broker type. It is a normal Kafka broker whose address the client uses to discover the cluster.</p>
+      <pre><code>bootstrap.servers=broker-1:9092,broker-2:9092,broker-3:9092</code></pre>
+      <p>When the client starts, it connects to one of these brokers and asks for metadata:</p>
+      <ul>
+        <li>All broker addresses</li>
+        <li>Topic names</li>
+        <li>Partition counts</li>
+        <li>Partition leaders</li>
+        <li>Cluster information</li>
+      </ul>
+      <div class="warning">
+        If one bootstrap broker fails, the client tries another configured bootstrap broker. If all configured bootstrap brokers are down or unreachable, the client cannot discover the cluster.
+      </div>
+      <h3>Bootstrap Broker vs Regular Broker</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Bootstrap Broker</th>
+            <th>Regular Broker</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>A normal broker used for initial discovery.</td>
+            <td>Any Kafka server in the cluster.</td>
+          </tr>
+          <tr>
+            <td>Returns metadata to clients.</td>
+            <td>Stores partitions, accepts writes, serves reads, replicates data, and may coordinate consumer groups.</td>
+          </tr>
+          <tr>
+            <td>Does not permanently forward all traffic.</td>
+            <td>Clients talk directly to the brokers that lead the needed partitions.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="leader">
+      <h2>6. Partition Leader</h2>
+      <p>A Kafka topic is split into partitions. Each partition has one leader broker. Producers and consumers normally talk to the leader for reads and writes.</p>
+      <pre><code>Topic: orders
+Partitions: 3
+
+orders-0 leader = broker-1
+orders-1 leader = broker-2
+orders-2 leader = broker-3</code></pre>
+      <p>If a producer sends a record with key <code>customer-123</code>, Kafka hashes the key and chooses a partition. If the chosen partition is <code>orders-1</code>, and <code>orders-1</code> is led by <code>broker-2</code>, the producer sends the record to <code>broker-2</code>.</p>
+      <pre><code>Producer -> broker-2 -> orders-1</code></pre>
+      <p>Followers copy data from the leader. If the leader fails, Kafka can elect an in-sync replica as the new leader.</p>
+      <h3>Producer Acknowledgement</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Setting</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>acks=0</code></td>
+            <td>Producer does not wait for confirmation.</td>
+          </tr>
+          <tr>
+            <td><code>acks=1</code></td>
+            <td>Leader broker confirms the write.</td>
+          </tr>
+          <tr>
+            <td><code>acks=all</code></td>
+            <td>Leader and required in-sync replicas confirm the write.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">Common production-safe choice: <code>acks=all</code>.</div>
+    </section>
+
+    <section id="polling">
+      <h2>7. Consumer Polling</h2>
+      <p>Kafka consumers are pull-based. The consumer asks the broker for records using a poll or fetch request.</p>
+      <pre><code>while (true) {
+  records = consumer.poll(Duration.ofMillis(1000));
+
+  for (record in records) {
+    process(record);
+  }
+
+  commit offset if needed
+}</code></pre>
+      <p>This is not usually CPU intensive because polling is not tight busy waiting. The poll call can wait for data and return earlier when records are available.</p>
+      <h3>Important Settings</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Setting</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>poll timeout</code></td>
+            <td>How long the client waits for data in one poll call.</td>
+          </tr>
+          <tr>
+            <td><code>fetch.min.bytes</code></td>
+            <td>Broker waits until enough data is available before responding, unless the wait timeout happens.</td>
+          </tr>
+          <tr>
+            <td><code>fetch.max.wait.ms</code></td>
+            <td>Maximum time broker waits before responding even if <code>fetch.min.bytes</code> is not reached.</td>
+          </tr>
+          <tr>
+            <td><code>max.poll.records</code></td>
+            <td>Maximum records returned in one poll.</td>
+          </tr>
+          <tr>
+            <td><code>max.poll.interval.ms</code></td>
+            <td>Maximum allowed time between poll calls before Kafka considers the consumer unhealthy.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>On high-traffic topics, poll returns quickly with records. On low-traffic topics, poll waits and may return empty or with a few records.</p>
+    </section>
+
+    <section id="topic-layout">
+      <h2>8. Topics Across Brokers</h2>
+      <p>A broker does not usually own an entire topic. A topic is split into partitions, and those partitions are distributed across brokers.</p>
+      <pre><code>Kafka cluster:
+broker-1
+broker-2
+broker-3
+
+Topic: orders
+Partitions: 6
+Replication factor: 3</code></pre>
+      <p>Possible placement:</p>
+      <pre><code>orders-0 leader broker-1, replicas broker-2 broker-3
+orders-1 leader broker-2, replicas broker-1 broker-3
+orders-2 leader broker-3, replicas broker-1 broker-2
+orders-3 leader broker-1, replicas broker-2 broker-3
+orders-4 leader broker-2, replicas broker-1 broker-3
+orders-5 leader broker-3, replicas broker-1 broker-2</code></pre>
+      <h3>Another View</h3>
+      <pre><code>broker-1:
+  leader for orders-0
+  follower for orders-1
+  follower for orders-2
+
+broker-2:
+  follower for orders-0
+  leader for orders-1
+  follower for orders-2
+
+broker-3:
+  follower for orders-0
+  follower for orders-1
+  leader for orders-2</code></pre>
+      <div class="note">
+        More precise wording: a topic is across brokers because its partitions and replicas are distributed across brokers.
+      </div>
+    </section>
+
+    <section id="security">
+      <h2>9. Security Modes</h2>
+      <p>Kafka communication can be plain or secured depending on configuration.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>PLAINTEXT</code></td>
+            <td>No encryption or authentication at the protocol layer.</td>
+          </tr>
+          <tr>
+            <td><code>SSL</code> / <code>TLS</code></td>
+            <td>Encrypted communication.</td>
+          </tr>
+          <tr>
+            <td><code>SASL_PLAINTEXT</code></td>
+            <td>Authentication without transport encryption.</td>
+          </tr>
+          <tr>
+            <td><code>SASL_SSL</code></td>
+            <td>Authentication plus encrypted communication.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">Production systems commonly use <code>SASL_SSL</code>.</div>
+    </section>
+
+    <section id="summary">
+      <h2>10. Short Summary</h2>
+      <ul>
+        <li>Kafka uses a TCP-based binary protocol between clients and brokers.</li>
+        <li>A bootstrap broker is a regular broker used for initial cluster discovery.</li>
+        <li>Clients should configure multiple bootstrap servers.</li>
+        <li>A topic is split into partitions.</li>
+        <li>Partitions are distributed across brokers.</li>
+        <li>Each partition has one leader broker.</li>
+        <li>Producers write to the partition leader.</li>
+        <li>Consumers usually read from the partition leader.</li>
+        <li>Consumers pull data using poll/fetch requests.</li>
+        <li>Polling is not normally CPU-heavy because the request can wait and return batches.</li>
+        <li>Kafka is best for async events, buffering, replay, fan-out, durability, and decoupling.</li>
+        <li>APIs are best when the caller needs an immediate answer.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
